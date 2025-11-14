@@ -12,10 +12,12 @@ import AddTransactionScreen from '../screens/AddTransactionScreen';
 import BudgetScreen from '../screens/BudgetScreen';
 import CardsScreen from '../screens/CardsScreen';
 import DashboardScreen from '../screens/DashboardScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import ScanReceiptScreen from '../screens/ScanReceiptScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import SMSTransactionsScreen from '../screens/SMSTransactionsScreen'; // NEW
+import SMSTransactionsScreen from '../screens/SMSTransactionsScreen';
+import TransactionDetailScreen from '../screens/TransactionDetailScreen';
 import TransactionsScreen from '../screens/TransactionsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -29,17 +31,19 @@ const darkHeaderOptions = {
 
 const screenTransitionOptions = { ...TransitionPresets.SlideFromRightIOS };
 
+// Transactions Stack
 function TransactionsStack() {
     return (
         <Stack.Navigator screenOptions={{ ...darkHeaderOptions, ...screenTransitionOptions }}>
             <Stack.Screen name="TransactionsList" component={TransactionsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} options={{ title: 'Transaction Details' }} />
             <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ title: 'Add Transaction' }} />
             <Stack.Screen name="ScanReceipt" component={ScanReceiptScreen} options={{ title: 'Scan Receipt' }} />
         </Stack.Navigator>
     );
 }
 
-// NEW: SMS Transactions Stack
+// SMS Stack (YOUR FEATURE)
 function SMSStack() {
     return (
         <Stack.Navigator screenOptions={{ ...darkHeaderOptions, ...screenTransitionOptions }}>
@@ -52,6 +56,7 @@ function SMSStack() {
     );
 }
 
+// Cards Stack
 function CardsStack() {
     return (
         <Stack.Navigator screenOptions={{ ...darkHeaderOptions, ...screenTransitionOptions }}>
@@ -61,6 +66,7 @@ function CardsStack() {
     );
 }
 
+// Dashboard Stack
 function DashboardStack() {
     return (
         <Stack.Navigator screenOptions={{ ...darkHeaderOptions, ...screenTransitionOptions }}>
@@ -71,16 +77,21 @@ function DashboardStack() {
     );
 }
 
-function SettingsStack() {
+// Settings Stack - NOW ACCEPTS onLogout
+function SettingsStack({ onLogout }) {
     return (
         <Stack.Navigator screenOptions={{ ...darkHeaderOptions, ...screenTransitionOptions }}>
-            <Stack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: "Settings" }} />
+            <Stack.Screen name="SettingsHome" options={{ title: "Settings" }}>
+                {props => <SettingsScreen {...props} onLogout={onLogout} />}
+            </Stack.Screen>
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
             <Stack.Screen name="About" component={AboutScreen} options={{ title: "About" }} />
         </Stack.Navigator>
     );
 }
 
-export default function AppNavigator() {
+// Main Tab Navigator - NOW ACCEPTS onLogout
+export default function AppNavigator({ onLogout }) {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -88,15 +99,23 @@ export default function AppNavigator() {
                     let iconName;
                     if (route.name === 'Dashboard') iconName = focused ? 'home' : 'home-outline';
                     else if (route.name === 'Transactions') iconName = focused ? 'list' : 'list-outline';
-                    else if (route.name === 'SMS') iconName = focused ? 'mail' : 'mail-outline'; // NEW
+                    else if (route.name === 'SMS') iconName = focused ? 'mail' : 'mail-outline';
                     else if (route.name === 'Budget') iconName = focused ? 'pie-chart' : 'pie-chart-outline';
                     else if (route.name === 'Settings') iconName = focused ? 'settings' : 'settings-outline';
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
-                tabBarLabel: ({ color, focused }) => <Text style={{ color, fontSize: 10, fontWeight: focused ? 'bold' : 'normal', paddingBottom: 5 }}>{route.name}</Text>,
+                tabBarLabel: ({ color, focused }) => (
+                    <Text style={{ color, fontSize: 10, fontWeight: focused ? 'bold' : 'normal', paddingBottom: 5 }}>
+                        {route.name}
+                    </Text>
+                ),
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.text_secondary,
-                tabBarStyle: { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.gray[700], height: 60 },
+                tabBarStyle: { 
+                    backgroundColor: theme.colors.surface, 
+                    borderTopColor: theme.colors.gray[700], 
+                    height: 60 
+                },
                 headerShown: false,
             })}
         >
@@ -116,7 +135,7 @@ export default function AppNavigator() {
                     },
                 })}
             />
-            {/* NEW TAB */}
+            {/* SMS TAB - YOUR FEATURE */}
             <Tab.Screen 
                 name="SMS" 
                 component={SMSStack} 
@@ -130,9 +149,10 @@ export default function AppNavigator() {
             />
             <Tab.Screen 
                 name="Settings" 
-                component={SettingsStack} 
                 listeners={{ tabPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
-            />
+            >
+                {props => <SettingsStack {...props} onLogout={onLogout} />}
+            </Tab.Screen>
         </Tab.Navigator>
     );
 }

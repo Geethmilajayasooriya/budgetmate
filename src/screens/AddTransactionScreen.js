@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import CategoryPicker from '../components/CategoryPicker';
 
+
 export default function AddTransactionScreen({ navigation, route }) {
     // Check for parameters passed from the route (e.g., from the scanner)
     const params = route.params || {};
@@ -19,8 +20,9 @@ export default function AddTransactionScreen({ navigation, route }) {
     const [amount, setAmount] = useState(params.amount || "");
     const [title, setTitle] = useState(params.title || "");
     const [category, setCategory] = useState(params.category || "");
-    const [type, setType] = useState('expense');
+    const [type, setType] = useState(params.type || 'expense');
     const [note, setNote] = useState(params.note || "");
+
 
     // This hook updates the form fields if the user scans another receipt
     // while this screen is already open.
@@ -29,9 +31,11 @@ export default function AddTransactionScreen({ navigation, route }) {
             if (route.params.amount) setAmount(route.params.amount);
             if (route.params.title) setTitle(route.params.title);
             if (route.params.category) setCategory(route.params.category);
+            if (route.params.type) setType(route.params.type);
             if (route.params.note) setNote(route.params.note);
         }
     }, [route.params]);
+
 
 
     const handleSaveTransaction = () => {
@@ -46,9 +50,20 @@ export default function AddTransactionScreen({ navigation, route }) {
         );
     };
 
+
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.content}>
+                {/* ✅ NEW: Scan Receipt Option Button */}
+                <TouchableOpacity
+                    style={styles.scanOption}
+                    onPress={() => navigation.navigate('ScanReceipt')}
+                >
+                    <Ionicons name="scan-outline" size={22} color={theme.colors.primary} />
+                    <Text style={styles.scanOptionText}>Scan Receipt Instead</Text>
+                    <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} />
+                </TouchableOpacity>
+
                 {/* Transaction Type Selector */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Transaction Type</Text>
@@ -98,6 +113,7 @@ export default function AddTransactionScreen({ navigation, route }) {
                     </View>
                 </View>
 
+
                 {/* Amount Input */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Amount *</Text>
@@ -108,10 +124,12 @@ export default function AddTransactionScreen({ navigation, route }) {
                             value={amount}
                             onChangeText={setAmount}
                             placeholder="0.00"
+                            placeholderTextColor={theme.colors.text_secondary}
                             keyboardType="numeric"
                         />
                     </View>
                 </View>
+
 
                 {/* Title Input */}
                 <View style={styles.section}>
@@ -121,8 +139,10 @@ export default function AddTransactionScreen({ navigation, route }) {
                         value={title}
                         onChangeText={setTitle}
                         placeholder="Enter transaction title"
+                        placeholderTextColor={theme.colors.text_secondary}
                     />
                 </View>
+
 
                 {/* Category Picker */}
                 <View style={styles.section}>
@@ -134,19 +154,22 @@ export default function AddTransactionScreen({ navigation, route }) {
                     />
                 </View>
 
+
                 {/* Note Input */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Note (Full Scanned Text)</Text>
+                    <Text style={styles.sectionTitle}>Note (Optional)</Text>
                     <TextInput
                         style={[styles.input, styles.noteInput]}
                         value={note}
                         onChangeText={setNote}
-                        placeholder="Scanned text will appear here..."
+                        placeholder="Add notes, scanned details will appear here..."
+                        placeholderTextColor={theme.colors.text_secondary}
                         multiline
                         numberOfLines={6}
                         textAlignVertical="top"
                     />
                 </View>
+
 
                 {/* Save Button */}
                 <TouchableOpacity style={styles.saveButton} onPress={handleSaveTransaction}>
@@ -157,6 +180,7 @@ export default function AddTransactionScreen({ navigation, route }) {
     );
 }
 
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -164,6 +188,26 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: theme.spacing.md,
+    },
+    // ✅ NEW: Scan Option Button Styles
+    scanOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: theme.colors.primary,
+        borderStyle: 'dashed',
+        gap: 8,
+        marginBottom: theme.spacing.lg,
+    },
+    scanOptionText: {
+        color: theme.colors.primary,
+        fontSize: 15,
+        fontWeight: '600',
+        flex: 1,
     },
     section: {
         marginBottom: theme.spacing.lg,

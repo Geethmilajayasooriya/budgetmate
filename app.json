@@ -19,7 +19,8 @@
       "bundleIdentifier": "com.financetracker.app",
       "infoPlist": {
         "NSFaceIDUsageDescription": "This app uses Face ID for secure authentication to protect your financial data.",
-        "NSCameraUsageDescription": "This app uses camera to scan receipts for automatic transaction entry."
+        "NSCameraUsageDescription": "This app uses camera to scan receipts for automatic transaction entry.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "buildNumber": "1"
     },

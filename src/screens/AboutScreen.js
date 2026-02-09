@@ -1,8 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../styles/theme';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import AnimatedView from '../components/AnimatedView';
+import { theme } from '../styles/theme';
 
 export default function AboutScreen() {
     return (
@@ -40,7 +39,7 @@ export default function AboutScreen() {
                     <Text style={styles.sectionText}>
                         •Kavindu Pabasara
                         {'\n'}•Geethmila Jayasooriya
-                        {'\n'}•Thennakoon
+                        {'\n'}•Sangeeth Thennakoon
                     </Text>
                 </View>
             </AnimatedView>

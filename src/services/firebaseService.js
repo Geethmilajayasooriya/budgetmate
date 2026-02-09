@@ -321,7 +321,7 @@ export const seedDefaultBudgets = async () => {
     }, 'create default budgets');
 };
 
-// ✅ NEW: Check if budget category has associated transactions
+// Check if budget category has associated transactions
 export const checkBudgetTransactions = async (category) => {
     return withNetworkCheck(async () => {
         try {
@@ -354,7 +354,7 @@ export const checkBudgetTransactions = async (category) => {
     }, 'check budget transactions');
 };
 
-// ✅ NEW: Reassign transactions from one category to another
+// Reassign transactions from one category to another
 export const reassignTransactions = async (oldCategory, newCategory) => {
     return withNetworkCheck(async () => {
         try {
@@ -389,7 +389,7 @@ export const reassignTransactions = async (oldCategory, newCategory) => {
     }, 'reassign transactions');
 };
 
-// ✅ FIXED: Delete budget category with transaction handling
+// Delete budget category with transaction handling
 export const deleteBudget = async (category, options = {}) => {
     const { deleteTransactions = false, reassignTo = null } = options;
     
@@ -445,4 +445,70 @@ export const deleteBudget = async (category, options = {}) => {
             throw error;
         }
     }, 'delete budget');
+};
+
+// --- ✅ NEW: DATA MANAGEMENT FUNCTIONS ---
+
+// Get all transactions for export (no network check required - read operation)
+export const getAllTransactionsForExport = async () => {
+    try {
+        const userId = getUserId();
+        const transactionsRef = collection(db, 'users', userId, 'transactions');
+        const q = query(transactionsRef, orderBy('createdAt', 'desc'));
+        
+        const querySnapshot = await getDocs(q);
+        const transactions = [];
+        
+        querySnapshot.forEach((doc) => {
+            transactions.push({
+                id: doc.id,
+                ...doc.data(),
+            });
+        });
+        
+        console.log(`Retrieved ${transactions.length} transactions for export`);
+        return transactions;
+    } catch (error) {
+        console.error('Error getting transactions for export:', error);
+        throw error;
+    }
+};
+
+// Clear all transactions (DESTRUCTIVE - requires network)
+export const clearAllTransactions = async () => {
+    return withNetworkCheck(async () => {
+        try {
+            console.log('=== clearAllTransactions called ===');
+            const userId = getUserId();
+            const transactionsRef = collection(db, 'users', userId, 'transactions');
+            
+            const querySnapshot = await getDocs(transactionsRef);
+            const batch = writeBatch(db);
+            
+            let count = 0;
+            querySnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+                count++;
+            });
+            
+            if (count > 0) {
+                await batch.commit();
+                console.log(`✅ Deleted ${count} transactions`);
+            } else {
+                console.log('No transactions to delete');
+            }
+            
+            return count;
+        } catch (error) {
+            console.error('Error clearing transactions:', error);
+            
+            if (error.code === 'permission-denied') {
+                throw new Error('Permission denied. You do not have permission to delete transactions.');
+            } else if (error.code === 'unavailable') {
+                throw new Error('Unable to connect to the database. Please check your internet connection.');
+            }
+            
+            throw error;
+        }
+    }, 'clear all data');
 };

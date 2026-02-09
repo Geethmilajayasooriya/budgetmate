@@ -11,6 +11,7 @@ import AddTransactionScreen from '../screens/AddTransactionScreen';
 import BudgetScreen from '../screens/BudgetScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import HelpFAQScreen from '../screens/HelpFAQScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import ScanReceiptScreen from '../screens/ScanReceiptScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -49,7 +50,7 @@ function DashboardStack() {
     );
 }
 
-// Settings Stack with onLogout prop
+// Settings Stack with onLogout prop and HelpFAQ route
 function SettingsStack({ onLogout }) {
     return (
         <Stack.Navigator screenOptions={{ ...darkHeaderOptions, ...screenTransitionOptions }}>
@@ -61,7 +62,16 @@ function SettingsStack({ onLogout }) {
                 component={EditProfileScreen} 
                 options={{ title: "Edit Profile" }} 
             />
-            <Stack.Screen name="About" component={AboutScreen} options={{ title: "About" }} />
+            <Stack.Screen 
+                name="HelpFAQ" 
+                component={HelpFAQScreen} 
+                options={{ title: "Help & FAQ" }} 
+            />
+            <Stack.Screen 
+                name="About" 
+                component={AboutScreen} 
+                options={{ title: "About" }} 
+            />
         </Stack.Navigator>
     );
 }

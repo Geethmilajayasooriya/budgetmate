@@ -27,6 +27,62 @@ export default function SettingsScreen({ navigation, onLogout }) {
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
 
+    // Handle Export Data
+    const handleExportData = () => {
+        Alert.alert(
+            'Export Data',
+            'This feature allows you to export all your transactions to a CSV file for backup or analysis.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Export', 
+                    onPress: () => {
+                        Alert.alert('Success', 'Export functionality will be available in the next update. Your data is safely stored in Firebase.');
+                    }
+                }
+            ]
+        );
+    };
+
+    // Handle Clear Data
+    const handleClearData = () => {
+        Alert.alert(
+            '⚠️ Clear All Data',
+            'This will permanently delete ALL your transactions and budgets. This action cannot be undone!\n\nAre you absolutely sure?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Clear Everything', 
+                    style: 'destructive',
+                    onPress: () => {
+                        // Second confirmation
+                        Alert.alert(
+                            '⚠️ Final Confirmation',
+                            'Last chance! All your financial data will be permanently deleted.',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                { 
+                                    text: 'Yes, Delete All', 
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        try {
+                                            // Import the clear function
+                                            const { clearAllTransactions } = require('../services/firebaseService');
+                                            await clearAllTransactions();
+                                            Alert.alert('Success', 'All data has been cleared.');
+                                        } catch (error) {
+                                            Alert.alert('Error', 'Failed to clear data: ' + error.message);
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                }
+            ]
+        );
+    };
+
     const settingSections = [
         {
             title: 'Security',
@@ -45,16 +101,14 @@ export default function SettingsScreen({ navigation, onLogout }) {
         {
             title: 'Data Management',
             items: [
-                { icon: 'cloud-download', title: 'Export Data', type: 'navigation', onPress: () => Alert.alert('Info', 'Data export feature coming soon') },
-                { icon: 'refresh', title: 'Backup & Restore', type: 'navigation', onPress: () => Alert.alert('Info', 'Backup feature coming soon') },
-                { icon: 'trash', title: 'Clear Data', type: 'navigation', onPress: () => Alert.alert('Warning', 'This will permanently delete all your data.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive' }]) },
+                { icon: 'cloud-download', title: 'Export Data', type: 'navigation', onPress: handleExportData },
+                { icon: 'trash', title: 'Clear All Data', type: 'navigation', onPress: handleClearData },
             ],
         },
         {
             title: 'Support',
             items: [
-                { icon: 'help-circle', title: 'Help & FAQ', type: 'navigation', onPress: () => Alert.alert('Info', 'Help section coming soon') },
-                { icon: 'mail', title: 'Contact Support', type: 'navigation', onPress: () => Alert.alert('Info', 'Support contact coming soon') },
+                { icon: 'help-circle', title: 'Help & FAQ', type: 'navigation', onPress: () => navigation.navigate('HelpFAQ') },
                 { icon: 'information-circle', title: 'About', type: 'navigation', onPress: () => navigation.navigate('About') },
             ],
         },
@@ -228,6 +282,12 @@ export default function SettingsScreen({ navigation, onLogout }) {
                     </View>
                 </View>
             </Modal>
+
+            {/* App Info Footer */}
+            <View style={styles.footer}>
+                <Text style={styles.footerText}>Budget Mate v1.0.0</Text>
+                <Text style={styles.footerSubtext}>Your Personal Finance Manager</Text>
+            </View>
         </ScrollView>
     );
 }
@@ -374,5 +434,20 @@ const styles = StyleSheet.create({
     modalButtonText: { 
         color: theme.colors.white, 
         fontWeight: '600' 
+    },
+    footer: {
+        alignItems: 'center',
+        paddingVertical: theme.spacing.xl,
+        marginTop: theme.spacing.lg,
+    },
+    footerText: {
+        fontSize: theme.fontSize.sm,
+        color: theme.colors.text_secondary,
+        fontWeight: '600',
+    },
+    footerSubtext: {
+        fontSize: theme.fontSize.xs,
+        color: theme.colors.text_tertiary,
+        marginTop: theme.spacing.xs,
     },
 });

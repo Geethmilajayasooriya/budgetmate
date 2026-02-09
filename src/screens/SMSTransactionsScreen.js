@@ -132,8 +132,14 @@ export default function ScanReceiptScreen() {
         Vibration.vibrate(50);
         setLoading(false);
 
-        // ✅ Updated: Removed "(AI Scanned)" completely from the note string
-        const note = `🛒 Items: ${data.items || 'N/A'}\n💳 Payment: ${data.paymentMethod || 'N/A'}`;
+        // ✅ FIXED: Removed all AI/scan references from note
+        const note = data.items && data.paymentMethod 
+            ? `🛒 Items: ${data.items}\n💳 Payment: ${data.paymentMethod}`
+            : data.items 
+                ? `🛒 Items: ${data.items}`
+                : data.paymentMethod
+                    ? `💳 Payment: ${data.paymentMethod}`
+                    : '';
 
         Alert.alert(
             `Receipt Scanned`,

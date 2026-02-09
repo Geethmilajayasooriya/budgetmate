@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as FileSystem from 'expo-file-system';
-import * as ImageManipulator from 'expo-image-manipulator'; // ✅ Crucial for 2026 API
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
@@ -23,10 +22,7 @@ import { theme } from '../styles/theme';
 // ==========================================
 // 🔑 CONFIGURATION
 // ==========================================
-const GEMINI_API_KEY = 'AIzaSyAgNgQQARb2tCOzUy5218VeP7Vd3SI6uCA'; 
-const OCR_SPACE_API_KEY = 'K84979664988957'; 
-
-// ✅ FIX: 2026 Latest Model Alias
+const GEMINI_API_KEY = 'AIzaSyCSfclv-2Rp6Ya9-HnslXQ-f4mA0-yY4C4'; 
 const PRIMARY_GEMINI_MODEL = 'gemini-3-flash-preview'; 
 
 export default function ScanReceiptScreen() {
@@ -48,7 +44,7 @@ export default function ScanReceiptScreen() {
     };
 
     // ==========================================
-    // 📸 IMAGE CAPTURE & PRE-PROCESSING
+    // 📸 IMAGE CAPTURE
     // ==========================================
     const handleCamera = async () => {
         try {
@@ -80,46 +76,38 @@ export default function ScanReceiptScreen() {
     const startScan = async (uri) => {
         setPreviewImage(uri);
         setLoading(true);
-        setStatusMessage('Compressing for AI...');
+        setStatusMessage('Optimizing Image...');
         
         try {
-            // ✅ FIX: Resize & Compress to prevent "Payload Too Large" Errors
+            // Resize to 1024px: High enough for OCR, small enough for fast uploads
             const manipResult = await ImageManipulator.manipulateAsync(
                 uri,
-                [{ resize: { width: 1024 } }], // Resizing to 1024px preserves receipt text while reducing size
-                { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+                [{ resize: { width: 1024 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
             );
 
             setStatusMessage('AI Analysis (Gemini 3)...');
             await processWithGemini(manipResult.base64);
-        } catch (aiError) {
-            console.error("Gemini Critical Failure:", aiError);
-            Alert.alert("AI Error", `Gemini failed: ${aiError.message}. Switching to backup...`);
-            
-            try {
-                setStatusMessage('Switching to Backup OCR...');
-                const rawBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-                await processWithOCRSpace(rawBase64);
-            } catch (ocrError) {
-                Alert.alert("Scan Failed", "All methods failed. Please enter details manually.");
-                setLoading(false);
-            }
+        } catch (error) {
+            console.error("Critical Failure:", error);
+            Alert.alert("Scan Failed", error.message || "An error occurred during scanning.");
+            setLoading(false);
         }
     };
 
     // ==========================================
-    // 🧠 METHOD 1: GEMINI AI (Primary)
+    // 🧠 GEMINI AI PROCESSING
     // ==========================================
     const processWithGemini = async (base64Data) => {
         const body = {
             contents: [{
                 parts: [
-                    { text: "Analyze this receipt. Return ONLY a raw JSON object with: { merchant, amount, date (YYYY-MM-DD), category, items, discount, paymentMethod }." },
+                    { text: "Extract data from this receipt. Return ONLY a JSON object: { merchant, amount (number), date (YYYY-MM-DD), category, items (string summary), currency, paymentMethod }." },
                     { inline_data: { mime_type: "image/jpeg", data: base64Data } }
                 ]
             }],
             generationConfig: {
-                response_mime_type: "application/json", // ✅ Forces API to return clean JSON
+                response_mime_type: "application/json",
             }
         };
 
@@ -132,68 +120,24 @@ export default function ScanReceiptScreen() {
         });
 
         const result = await response.json();
-
         if (result.error) throw new Error(result.error.message);
 
         const rawJsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawJsonText) throw new Error("No data returned from AI");
+        if (!rawJsonText) throw new Error("AI could not read the receipt clearly.");
 
         const data = JSON.parse(rawJsonText);
-        finishScan(data, 'Gemini AI');
+        finishScan(data);
     };
 
-    // ==========================================
-    // 🛡️ METHOD 2: OCR.SPACE (Backup)
-    // ==========================================
-    const processWithOCRSpace = async (base64) => {
-        const formData = new FormData();
-        formData.append('base64Image', `data:image/jpeg;base64,${base64}`);
-        formData.append('OCREngine', '2'); 
-
-        const response = await fetch('https://api.ocr.space/parse/image', {
-            method: 'POST',
-            headers: { 'apikey': OCR_SPACE_API_KEY },
-            body: formData,
-        });
-
-        const data = await response.json();
-        if (!data.ParsedResults?.length) throw new Error("OCR Failed");
-        
-        const text = data.ParsedResults[0].ParsedText;
-        const parsedData = parseTextLocally(text);
-        finishScan(parsedData, 'OCR Engine');
-    };
-
-    const parseTextLocally = (text) => {
-        const lowerText = text.toLowerCase();
-        let amount = 0;
-        const amountRegex = /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g;
-        const potentialAmounts = text.match(amountRegex) || [];
-        if (potentialAmounts.length > 0) {
-            const numbers = potentialAmounts.map(n => parseFloat(n.replace(/,/g, ''))).filter(n => !isNaN(n));
-            amount = Math.max(...numbers);
-        }
-
-        return { 
-            merchant: text.split('\n')[0].substring(0, 20) || "Unknown", 
-            amount, 
-            category: lowerText.includes('food') ? 'food' : 'other', 
-            date: new Date().toISOString().split('T')[0],
-            items: "Details unavailable (OCR Backup)", 
-            discount: 0, 
-            paymentMethod: "Unknown"
-        };
-    };
-
-    const finishScan = (data, source) => {
+    const finishScan = (data) => {
         Vibration.vibrate(50);
         setLoading(false);
 
-        const note = `🛒 Items: ${data.items || 'N/A'}\n💳 Payment: ${data.paymentMethod || 'N/A'}\n(Scanned via ${source})`;
+        const note = `🛒 Items: ${data.items || 'N/A'}\n💳 Payment: ${data.paymentMethod || 'N/A'}\n(AI Scanned)`;
 
         Alert.alert(
             `Receipt Scanned`,
-            `Merchant: ${data.merchant}\nAmount: Rs. ${data.amount}`,
+            `Merchant: ${data.merchant}\nAmount: ${data.currency || 'Rs.'} ${data.amount}`,
             [
                 { text: 'Retake', style: 'cancel', onPress: () => setPreviewImage(null) },
                 {
@@ -206,6 +150,7 @@ export default function ScanReceiptScreen() {
                                 title: data.merchant || 'Scanned Receipt',
                                 category: data.category?.toLowerCase() || 'other',
                                 type: 'expense',
+                                date: data.date,
                                 note: note,
                             },
                         });
@@ -216,6 +161,7 @@ export default function ScanReceiptScreen() {
         );
     };
 
+    // UI RENDER (Unchanged loading/container logic)
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -224,7 +170,7 @@ export default function ScanReceiptScreen() {
                 <View style={styles.loadingOverlay}>
                     <ActivityIndicator size="large" color={theme.colors.primary} />
                     <Text style={styles.loadingText}>{statusMessage}</Text>
-                    <Text style={styles.loadingSubText}>This may take a few seconds...</Text>
+                    <Text style={styles.loadingSubText}>Processing with Gemini 3...</Text>
                 </View>
             </View>
         );
@@ -237,7 +183,7 @@ export default function ScanReceiptScreen() {
             <AnimatedView index={0}>
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Smart Scanner</Text>
-                    <Text style={styles.headerSubtitle}>Powered by Gemini 3 & OCR</Text>
+                    <Text style={styles.headerSubtitle}>Powered by Gemini 3 Flash</Text>
                 </View>
             </AnimatedView>
 
@@ -266,7 +212,7 @@ export default function ScanReceiptScreen() {
                     <TouchableOpacity style={styles.actionCard} onPress={handleGallery}>
                         <LinearGradient colors={[theme.colors.surface_light, theme.colors.surface]} style={styles.actionGradient}>
                             <Ionicons name="images" size={32} color={theme.colors.primary} />
-                            <Text style={styles.actionTitle}>Gallery</Text>
+                            <Text style={[styles.actionTitle, { color: theme.colors.text_primary }]}>Gallery</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
@@ -288,10 +234,10 @@ const styles = StyleSheet.create({
     actionsRow: { flexDirection: 'row', gap: 16, marginBottom: 30 },
     actionCard: { flex: 1, height: 140, borderRadius: 20 },
     actionGradient: { flex: 1, borderRadius: 20, padding: 16, justifyContent: 'center', alignItems: 'center' },
-    actionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text_primary, marginTop: 8 },
+    actionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginTop: 8 },
     loadingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
     loadingBg: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
     loadingOverlay: { backgroundColor: 'rgba(30, 41, 59, 0.9)', padding: 30, borderRadius: 20, alignItems: 'center' },
-    loadingText: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text_primary, marginTop: 16 },
-    loadingSubText: { fontSize: 13, color: theme.colors.text_secondary, marginTop: 6 }
+    loadingText: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginTop: 16 },
+    loadingSubText: { fontSize: 13, color: '#ccc', marginTop: 6 }
 });

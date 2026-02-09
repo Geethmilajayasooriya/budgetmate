@@ -1,7 +1,8 @@
 // src/screens/BudgetScreen.js - FIXED VERSION
 // Fixes:
-// 1. Improved date handling for SMS-imported transactions
-// 2. Better category spending calculation with debug logs
+// 1. Shows ALL categories with spending, even if no budget is set
+// 2. Improved date handling for SMS-imported transactions
+// 3. Better category spending calculation with debug logs
 
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -152,6 +153,17 @@ export default function BudgetScreen() {
 
     const categorySpending = calculateCategorySpending();
 
+    // ✅ NEW: Merge budgets with spending categories
+    // This ensures categories with spending but no budget are also shown
+    const allCategories = { ...categoryBudgets };
+    Object.keys(categorySpending).forEach(category => {
+        if (!allCategories[category]) {
+            // Category has spending but no budget - add with 0 budget
+            allCategories[category] = 0;
+            console.log(`⚠️ Found spending in category '${category}' without budget - adding with 0 budget`);
+        }
+    });
+
     const categoryNames = {
         'food': 'Food & Dining',
         'transport': 'Transportation',
@@ -184,16 +196,27 @@ export default function BudgetScreen() {
         'other': 'ellipsis-horizontal',
     };
 
-    const budgets = Object.keys(categoryBudgets).map(categoryKey => {
+    // ✅ FIXED: Use allCategories instead of categoryBudgets
+    const budgets = Object.keys(allCategories).map(categoryKey => {
         const displayName = categoryNames[categoryKey] || categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1);
+        const budgetAmount = allCategories[categoryKey];
+        const spentAmount = categorySpending[categoryKey] || 0;
 
         return {
             id: categoryKey,
             category: displayName,
-            spent: categorySpending[categoryKey] || 0,
-            budget: categoryBudgets[categoryKey],
+            spent: spentAmount,
+            budget: budgetAmount,
             icon: categoryIcons[categoryKey] || 'ellipsis-horizontal',
+            hasNoBudget: budgetAmount === 0 && spentAmount > 0, // ✅ Flag for no budget warning
         };
+    }).filter(budget => budget.budget > 0 || budget.spent > 0); // Only show categories with budget OR spending
+
+    // Sort: categories with spending first, then by spent amount
+    budgets.sort((a, b) => {
+        if (a.spent > 0 && b.spent === 0) return -1;
+        if (a.spent === 0 && b.spent > 0) return 1;
+        return b.spent - a.spent;
     });
 
     const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0);
@@ -532,7 +555,14 @@ export default function BudgetScreen() {
                                             <Ionicons name={budget.icon} size={24} color={theme.colors.primary} />
                                         </View>
                                         <View style={styles.budgetInfo}>
-                                            <Text style={styles.budgetCategory}>{budget.category}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <Text style={styles.budgetCategory}>{budget.category}</Text>
+                                                {budget.hasNoBudget && (
+                                                    <View style={styles.noBudgetBadge}>
+                                                        <Text style={styles.noBudgetText}>No Budget</Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                             <Text style={styles.budgetAmounts}>
                                                 Rs. {budget.spent.toLocaleString()} / Rs. {budget.budget.toLocaleString()}
                                             </Text>
@@ -541,10 +571,18 @@ export default function BudgetScreen() {
                                     </View>
                                     <BudgetCard
                                         spent={budget.spent}
-                                        budget={budget.budget}
+                                        budget={budget.budget > 0 ? budget.budget : budget.spent} // Use spent as budget if no budget set
                                         showTitle={false}
                                         compact={true}
                                     />
+                                    {budget.hasNoBudget && (
+                                        <View style={styles.noBudgetWarning}>
+                                            <Ionicons name="alert-circle" size={16} color={theme.colors.warning} />
+                                            <Text style={styles.noBudgetWarningText}>
+                                                Set a budget to track this category
+                                            </Text>
+                                        </View>
+                                    )}
                                 </TouchableOpacity>
                             ))
                         ) : (
@@ -850,6 +888,32 @@ const styles = StyleSheet.create({
     budgetAmounts: {
         fontSize: theme.fontSize.sm,
         color: theme.colors.text_secondary,
+    },
+    // ✅ NEW: No budget badge styles
+    noBudgetBadge: {
+        backgroundColor: theme.colors.warning + '20',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+    },
+    noBudgetText: {
+        fontSize: 10,
+        color: theme.colors.warning,
+        fontWeight: '600',
+    },
+    noBudgetWarning: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: theme.spacing.sm,
+        padding: theme.spacing.sm,
+        backgroundColor: theme.colors.warning + '10',
+        borderRadius: theme.borderRadius.md,
+    },
+    noBudgetWarningText: {
+        flex: 1,
+        fontSize: theme.fontSize.xs,
+        color: theme.colors.warning,
     },
     emptyBudgets: {
         alignItems: 'center',

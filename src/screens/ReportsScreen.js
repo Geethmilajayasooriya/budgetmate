@@ -1,5 +1,5 @@
 // ReportsScreen.js - Interactive Chart with Clickable Bars
-// Tap any bar to see the exact amount!
+// Updated: Removed zero-value "candles" to show empty space when no data exists.
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -95,7 +95,7 @@ export default function ReportsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [transactions, setTransactions] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState(null);
-    const [selectedBar, setSelectedBar] = useState(null); // Track which bar is tapped
+    const [selectedBar, setSelectedBar] = useState(null); 
     
     useEffect(() => {
         loadData();
@@ -140,7 +140,6 @@ export default function ReportsScreen({ navigation }) {
         }
     };
 
-    // Calculate metrics
     const metrics = useMemo(() => {
         const income = transactions
             .filter(t => t.type === 'income')
@@ -157,7 +156,6 @@ export default function ReportsScreen({ navigation }) {
         };
     }, [transactions]);
 
-    // Category breakdown
     const categoryData = useMemo(() => {
         const categoryTotals = {};
         
@@ -188,7 +186,6 @@ export default function ReportsScreen({ navigation }) {
             .sort((a, b) => b.amount - a.amount);
     }, [transactions, metrics.expenses]);
 
-    // Daily/Weekly data for chart
     const dailyData = useMemo(() => {
         if (viewMode === 'weekly') {
             const { start } = getISOWeekBounds(timeOffset);
@@ -221,41 +218,30 @@ export default function ReportsScreen({ navigation }) {
                 return { day, income: dayIncome, expense: dayExpense };
             });
         } else {
-            // Monthly - show weeks
             const { start, end } = getMonthBounds(timeOffset);
             const weeks = [];
-            
             let currentWeekStart = new Date(start);
             let weekIndex = 0;
             
             while (currentWeekStart <= end && weekIndex < 5) {
                 const weekEnd = new Date(currentWeekStart);
                 weekEnd.setDate(weekEnd.getDate() + 6);
-                
                 const weekIncome = transactions
                     .filter(t => {
                         const txnDate = new Date(t.date);
                         return t.type === 'income' && txnDate >= currentWeekStart && txnDate <= weekEnd;
                     })
                     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-                
                 const weekExpense = transactions
                     .filter(t => {
                         const txnDate = new Date(t.date);
                         return t.type === 'expense' && txnDate >= currentWeekStart && txnDate <= weekEnd;
                     })
                     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-                
-                weeks.push({ 
-                    day: `Week ${weekIndex + 1}`, 
-                    income: weekIncome, 
-                    expense: weekExpense 
-                });
-                
+                weeks.push({ day: `W${weekIndex + 1}`, income: weekIncome, expense: weekExpense });
                 currentWeekStart.setDate(currentWeekStart.getDate() + 7);
                 weekIndex++;
             }
-            
             return weeks;
         }
     }, [transactions, timeOffset, viewMode]);
@@ -271,8 +257,6 @@ export default function ReportsScreen({ navigation }) {
 
     const bounds = viewMode === 'weekly' ? getISOWeekBounds(timeOffset) : getMonthBounds(timeOffset);
     const dateRange = viewMode === 'weekly' ? formatWeekRange(bounds.start, bounds.end) : formatMonthRange(bounds.start);
-    
-    // Calculate max value for scaling bars
     const maxValue = Math.max(...dailyData.flatMap(d => [d.income, d.expense]), 1);
 
     return (
@@ -294,18 +278,14 @@ export default function ReportsScreen({ navigation }) {
                         onPress={() => { setViewMode('weekly'); setTimeOffset(0); setSelectedBar(null); }}
                     >
                         <Ionicons name="calendar" size={18} color={viewMode === 'weekly' ? '#fff' : '#9ca3af'} />
-                        <Text style={[styles.toggleButtonText, viewMode === 'weekly' && styles.activeToggleButtonText]}>
-                            Weekly
-                        </Text>
+                        <Text style={[styles.toggleButtonText, viewMode === 'weekly' && styles.activeToggleButtonText]}>Weekly</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.toggleButton, viewMode === 'monthly' && styles.activeToggleButton]}
                         onPress={() => { setViewMode('monthly'); setTimeOffset(0); setSelectedBar(null); }}
                     >
                         <Ionicons name="calendar-outline" size={18} color={viewMode === 'monthly' ? '#fff' : '#9ca3af'} />
-                        <Text style={[styles.toggleButtonText, viewMode === 'monthly' && styles.activeToggleButtonText]}>
-                            Monthly
-                        </Text>
+                        <Text style={[styles.toggleButtonText, viewMode === 'monthly' && styles.activeToggleButtonText]}>Monthly</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -329,145 +309,102 @@ export default function ReportsScreen({ navigation }) {
 
                 {/* Summary Cards */}
                 <View style={styles.summaryContainer}>
-                    <AnimatedCard delay={100} style={styles.summaryCard}>
-                        <LinearGradient colors={['#10b981', '#059669']} style={styles.summaryGradient}>
-                            <Ionicons name="arrow-up-circle" size={28} color="#fff" />
-                            <Text style={styles.summaryLabel}>Income</Text>
-                            <Text style={styles.summaryValue}>Rs. {metrics.income.toLocaleString()}</Text>
-                        </LinearGradient>
-                    </AnimatedCard>
+                    <View style={styles.summaryRow}>
+                        <AnimatedCard delay={100} style={[styles.summaryCard, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+                            <LinearGradient colors={['#10b981', '#059669']} style={styles.summaryGradient}>
+                                <Ionicons name="arrow-up-circle" size={24} color="#fff" />
+                                <View>
+                                    <Text style={styles.summaryLabel}>Income</Text>
+                                    <Text style={styles.summaryValue}>Rs. {metrics.income.toLocaleString()}</Text>
+                                </View>
+                            </LinearGradient>
+                        </AnimatedCard>
 
-                    <AnimatedCard delay={200} style={styles.summaryCard}>
-                        <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.summaryGradient}>
-                            <Ionicons name="arrow-down-circle" size={28} color="#fff" />
-                            <Text style={styles.summaryLabel}>Expenses</Text>
-                            <Text style={styles.summaryValue}>Rs. {metrics.expenses.toLocaleString()}</Text>
-                        </LinearGradient>
-                    </AnimatedCard>
+                        <AnimatedCard delay={200} style={[styles.summaryCard, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+                            <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.summaryGradient}>
+                                <Ionicons name="arrow-down-circle" size={24} color="#fff" />
+                                <View>
+                                    <Text style={styles.summaryLabel}>Expenses</Text>
+                                    <Text style={styles.summaryValue}>Rs. {metrics.expenses.toLocaleString()}</Text>
+                                </View>
+                            </LinearGradient>
+                        </AnimatedCard>
+                    </View>
 
-                    <AnimatedCard delay={300} style={styles.summaryCardWide}>
+                    <AnimatedCard delay={300} style={[styles.summaryCardWide, { marginHorizontal: 0 }]}>
                         <LinearGradient 
                             colors={metrics.balance >= 0 ? ['#3b82f6', '#2563eb'] : ['#ef4444', '#dc2626']} 
                             style={styles.summaryGradient}
                         >
-                            <Ionicons name="wallet" size={28} color="#fff" />
-                            <Text style={styles.summaryLabel}>Balance</Text>
-                            <Text style={styles.summaryValue}>Rs. {Math.abs(metrics.balance).toLocaleString()}</Text>
+                            <Ionicons name="wallet" size={24} color="#fff" />
+                            <View>
+                                <Text style={styles.summaryLabel}>Net Balance</Text>
+                                <Text style={styles.summaryValue}>Rs. {Math.abs(metrics.balance).toLocaleString()}</Text>
+                            </View>
                         </LinearGradient>
                     </AnimatedCard>
                 </View>
 
-                {/* ✅ INTERACTIVE CHART - Tap bars to see amounts! */}
+                {/* INTERACTIVE CHART - REMOVED ZERO-VALUE CANDLES */}
                 <AnimatedCard delay={400}>
                     <View style={styles.chartHeader}>
                         <View>
-                            <Text style={styles.sectionTitle}>Income vs Expenses</Text>
-                            <Text style={styles.sectionSubtitle}>
-                                Tap any bar to see amount • {viewMode === 'weekly' ? 'Daily' : 'Weekly'} view
-                            </Text>
+                            <Text style={styles.sectionTitle}>Activity</Text>
+                            <Text style={styles.sectionSubtitle}>Tap bars to view details</Text>
                         </View>
                         {selectedBar && (
-                            <TouchableOpacity 
-                                style={styles.clearButton}
-                                onPress={() => setSelectedBar(null)}
-                            >
+                            <TouchableOpacity onPress={() => setSelectedBar(null)}>
                                 <Ionicons name="close-circle" size={20} color="#9ca3af" />
                             </TouchableOpacity>
                         )}
                     </View>
                     
-                    {/* Selected Bar Info Display */}
                     {selectedBar && (
-                        <Animated.View 
-                            entering={FadeInDown.duration(300)}
-                            style={styles.selectedInfo}
-                        >
+                        <Animated.View entering={FadeInDown.duration(300)} style={styles.selectedInfo}>
                             <View style={styles.selectedInfoRow}>
                                 <View style={[styles.selectedDot, { backgroundColor: selectedBar.type === 'income' ? '#10b981' : '#ef4444' }]} />
-                                <Text style={styles.selectedDay}>{selectedBar.day}</Text>
-                                <Text style={styles.selectedType}>
-                                    {selectedBar.type === 'income' ? 'Income' : 'Expense'}
-                                </Text>
+                                <Text style={styles.selectedDay}>{selectedBar.day} • {selectedBar.type === 'income' ? 'Income' : 'Expense'}</Text>
                             </View>
-                            <Text style={styles.selectedAmount}>
-                                Rs. {selectedBar.amount.toLocaleString()}
-                            </Text>
+                            <Text style={styles.selectedAmount}>Rs. {selectedBar.amount.toLocaleString()}</Text>
                         </Animated.View>
                     )}
                     
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
                         <View style={styles.chartContainer}>
                             {dailyData.map((item, dayIndex) => {
-                                const incomeHeight = (item.income / maxValue) * 160;
-                                const expenseHeight = (item.expense / maxValue) * 160;
+                                // Logic: If amount is 0, height becomes 0
+                                const incomeHeight = item.income > 0 ? (item.income / maxValue) * 150 : 0;
+                                const expenseHeight = item.expense > 0 ? (item.expense / maxValue) * 150 : 0;
                                 
                                 return (
                                     <View key={dayIndex} style={styles.dayColumn}>
-                                        {/* Income Bar */}
-                                        <TouchableOpacity 
-                                            activeOpacity={0.7}
-                                            onPress={() => {
-                                                if (item.income > 0) {
-                                                    setSelectedBar({
-                                                        day: item.day,
-                                                        type: 'income',
-                                                        amount: item.income
-                                                    });
-                                                }
-                                            }}
-                                            style={styles.barTouchable}
-                                        >
-                                            <View style={styles.barContainer}>
-                                                <View 
-                                                    style={[
-                                                        styles.bar, 
-                                                        styles.incomeBar,
-                                                        { height: Math.max(incomeHeight, 4) },
-                                                        selectedBar?.day === item.day && selectedBar?.type === 'income' && styles.selectedBar
-                                                    ]} 
-                                                >
-                                                    {selectedBar?.day === item.day && selectedBar?.type === 'income' && (
-                                                        <View style={styles.barGlow} />
-                                                    )}
-                                                </View>
-                                            </View>
-                                        </TouchableOpacity>
+                                        <View style={styles.barGroup}>
+                                            {/* Income Bar - only visible if item.income > 0 */}
+                                            <TouchableOpacity 
+                                                activeOpacity={0.8}
+                                                onPress={() => item.income > 0 && setSelectedBar({ day: item.day, type: 'income', amount: item.income })}
+                                                style={[
+                                                    styles.bar, 
+                                                    styles.incomeBar,
+                                                    { height: incomeHeight },
+                                                    selectedBar?.day === item.day && selectedBar?.type === 'income' && styles.selectedBar
+                                                ]}
+                                            />
+                                            
+                                            {/* Expense Bar - only visible if item.expense > 0 */}
+                                            <TouchableOpacity 
+                                                activeOpacity={0.8}
+                                                onPress={() => item.expense > 0 && setSelectedBar({ day: item.day, type: 'expense', amount: item.expense })}
+                                                style={[
+                                                    styles.bar, 
+                                                    styles.expenseBar,
+                                                    { height: expenseHeight },
+                                                    selectedBar?.day === item.day && selectedBar?.type === 'expense' && styles.selectedBar
+                                                ]}
+                                            />
+                                        </View>
                                         
-                                        {/* Expense Bar */}
-                                        <TouchableOpacity 
-                                            activeOpacity={0.7}
-                                            onPress={() => {
-                                                if (item.expense > 0) {
-                                                    setSelectedBar({
-                                                        day: item.day,
-                                                        type: 'expense',
-                                                        amount: item.expense
-                                                    });
-                                                }
-                                            }}
-                                            style={styles.barTouchable}
-                                        >
-                                            <View style={styles.barContainer}>
-                                                <View 
-                                                    style={[
-                                                        styles.bar, 
-                                                        styles.expenseBar,
-                                                        { height: Math.max(expenseHeight, 4) },
-                                                        selectedBar?.day === item.day && selectedBar?.type === 'expense' && styles.selectedBar
-                                                    ]} 
-                                                >
-                                                    {selectedBar?.day === item.day && selectedBar?.type === 'expense' && (
-                                                        <View style={styles.barGlow} />
-                                                    )}
-                                                </View>
-                                            </View>
-                                        </TouchableOpacity>
-                                        
-                                        {/* Day Label */}
-                                        <Text style={[
-                                            styles.dayLabel,
-                                            selectedBar?.day === item.day && styles.selectedDayLabel
-                                        ]}>
+                                        <Text style={[styles.dayLabel, selectedBar?.day === item.day && styles.selectedDayLabel]}>
                                             {item.day}
                                         </Text>
                                     </View>
@@ -476,7 +413,6 @@ export default function ReportsScreen({ navigation }) {
                         </View>
                     </ScrollView>
                     
-                    {/* Legend */}
                     <View style={styles.legend}>
                         <View style={styles.legendItem}>
                             <View style={[styles.legendBox, { backgroundColor: '#10b981' }]} />
@@ -492,8 +428,8 @@ export default function ReportsScreen({ navigation }) {
                 {/* Expense Breakdown */}
                 {categoryData.length > 0 && (
                     <AnimatedCard delay={500}>
-                        <Text style={styles.sectionTitle}>Expense Breakdown</Text>
-                        <Text style={styles.sectionSubtitle}>By category</Text>
+                        <Text style={styles.sectionTitle}>Category Breakdown</Text>
+                        <Text style={styles.sectionSubtitle}>Expense distribution</Text>
                         
                         <View style={styles.pieContainer}>
                             <PieChart
@@ -503,33 +439,25 @@ export default function ReportsScreen({ navigation }) {
                                 textColor="#fff"
                                 textSize={10}
                                 radius={90}
-                                innerRadius={50}
-                                innerCircleColor="#1E1E1E"
+                                innerRadius={60}
+                                innerCircleColor="#1f2937"
+                                centerLabelComponent={() => (
+                                    <View style={styles.pieCenter}>
+                                        <Text style={styles.pieCenterValue}>
+                                            {selectedCategory ? `${selectedCategory.percentage.toFixed(0)}%` : 'Total'}
+                                        </Text>
+                                        <Text style={styles.pieCenterLabel}>
+                                            {selectedCategory ? selectedCategory.name : `Rs. ${metrics.expenses.toLocaleString()}`}
+                                        </Text>
+                                    </View>
+                                )}
                                 focusOnPress
                                 onPress={setSelectedCategory}
-                                strokeColor="#1E1E1E"
-                                strokeWidth={2}
-                                centerLabelComponent={() => (
-                                    selectedCategory ? (
-                                        <View style={styles.pieCenter}>
-                                            <Text style={styles.pieCenterValue}>{selectedCategory.percentage.toFixed(0)}%</Text>
-                                            <Text style={styles.pieCenterLabel}>{selectedCategory.name}</Text>
-                                        </View>
-                                    ) : (
-                                        <View style={styles.pieCenter}>
-                                            <Text style={styles.pieCenterValue}>
-                                                {metrics.expenses >= 1000 ? `${(metrics.expenses/1000).toFixed(1)}k` : metrics.expenses}
-                                            </Text>
-                                            <Text style={styles.pieCenterLabel}>Total</Text>
-                                        </View>
-                                    )
-                                )}
                             />
                         </View>
                         
-                        {/* Category List */}
                         <View style={styles.categoryList}>
-                            {categoryData.slice(0, 5).map((cat) => (
+                            {categoryData.map((cat) => (
                                 <View key={cat.category} style={styles.categoryItem}>
                                     <View style={styles.categoryLeft}>
                                         <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
@@ -545,7 +473,7 @@ export default function ReportsScreen({ navigation }) {
                     </AnimatedCard>
                 )}
 
-                <View style={{ height: 40 }} />
+                <View style={{ height: 60 }} />
             </ScrollView>
         </LinearGradient>
     );
@@ -556,177 +484,75 @@ const styles = StyleSheet.create({
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
     loadingText: { marginTop: 16, fontSize: 14, color: '#9ca3af' },
     scrollContent: { paddingBottom: 20 },
-    header: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
-    headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#f9fafb' },
+    header: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 16 },
+    headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#f9fafb' },
     headerSubtitle: { fontSize: 14, color: '#9ca3af', marginTop: 4 },
     viewModeToggle: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 16, backgroundColor: '#1f2937', borderRadius: 12, padding: 4 },
-    toggleButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, gap: 8 },
+    toggleButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 8 },
     activeToggleButton: { backgroundColor: '#10b981' },
     toggleButtonText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
     activeToggleButtonText: { color: '#fff' },
     periodNavigator: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#1f2937', borderRadius: 16 },
     navButton: { padding: 8 },
     navButtonDisabled: { opacity: 0.3 },
-    navText: { fontSize: 16, color: '#9ca3af', fontWeight: '600' },
+    navText: { fontSize: 14, color: '#9ca3af', fontWeight: '600' },
     currentNavText: { color: '#10b981' },
     summaryContainer: { paddingHorizontal: 20, gap: 12, marginBottom: 20 },
-    card: { backgroundColor: '#1f2937', borderRadius: 16, padding: 20, marginHorizontal: 20, marginBottom: 16 },
-    summaryCard: { height: 130 },
-    summaryCardWide: { height: 130 },
+    summaryRow: { flexDirection: 'row', gap: 12 },
+    card: { backgroundColor: '#1f2937', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16 },
+    summaryCard: { height: 110 },
+    summaryCardWide: { height: 110 },
     summaryGradient: { flex: 1, borderRadius: 16, padding: 16, justifyContent: 'space-between' },
-    summaryLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-    summaryValue: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: 4 },
-    
-    // Chart styles
-    chartHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-    },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#f9fafb', marginBottom: 4 },
-    sectionSubtitle: { fontSize: 12, color: '#9ca3af' },
-    clearButton: {
-        padding: 4,
-    },
-    
-    // Selected bar info
-    selectedInfo: {
-        backgroundColor: '#374151',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 2,
-        borderColor: '#4b5563',
-    },
-    selectedInfoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8,
-    },
-    selectedDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-    },
-    selectedDay: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#d1d5db',
-    },
-    selectedType: {
-        fontSize: 13,
-        color: '#9ca3af',
-    },
-    selectedAmount: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#f9fafb',
-    },
-    
-    // Chart container
-    chartScroll: { marginBottom: 16 },
-    chartContainer: { 
+    summaryLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+    summaryValue: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+    chartHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#f9fafb' },
+    sectionSubtitle: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+    selectedInfo: { backgroundColor: '#374151', borderRadius: 12, padding: 12, marginBottom: 16 },
+    selectedInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+    selectedDot: { width: 8, height: 8, borderRadius: 4 },
+    selectedDay: { fontSize: 12, color: '#d1d5db' },
+    selectedAmount: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+    chartScroll: { marginBottom: 10 },
+    chartContainer: { flexDirection: 'row', alignItems: 'flex-end', paddingBottom: 10, minWidth: SCREEN_WIDTH - 80 },
+    dayColumn: { alignItems: 'center', marginHorizontal: 8 },
+    barGroup: { 
         flexDirection: 'row', 
-        paddingHorizontal: 10, 
-        gap: 12,
-        minWidth: SCREEN_WIDTH - 40,
-        alignItems: 'flex-end',
-        height: 220,
-    },
-    dayColumn: { 
-        alignItems: 'center',
-        flex: 1,
-    },
-    barTouchable: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        width: '100%',
-    },
-    barContainer: {
-        alignItems: 'center',
-        justifyContent: 'flex-end',
+        alignItems: 'flex-end', 
+        gap: 4, 
+        height: 150,
+        justifyContent: 'center'
     },
     bar: { 
-        width: 28,
-        borderRadius: 6,
-        minHeight: 4,
-        position: 'relative',
-        overflow: 'visible',
+        width: 14, 
+        borderRadius: 4, 
+        minHeight: 0, // FIXED: Changed from 4 to 0
     },
-    incomeBar: { 
-        backgroundColor: '#10b981',
-        marginBottom: 6,
+    incomeBar: { backgroundColor: '#10b981' },
+    expenseBar: { backgroundColor: '#ef4444' },
+    selectedBar: { 
+        borderWidth: 2, 
+        borderColor: '#fff', 
+        shadowColor: '#fff', 
+        shadowRadius: 5, 
+        elevation: 5 
     },
-    expenseBar: { 
-        backgroundColor: '#ef4444',
-        marginBottom: 6,
-    },
-    selectedBar: {
-        opacity: 1,
-        shadowColor: '#fff',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-    barGlow: {
-        position: 'absolute',
-        top: -2,
-        left: -2,
-        right: -2,
-        bottom: -2,
-        borderRadius: 8,
-        borderWidth: 2,
-        borderColor: '#fff',
-        opacity: 0.3,
-    },
-    dayLabel: { 
-        fontSize: 12,
-        color: '#9ca3af',
-        fontWeight: '600',
-        marginTop: 8,
-    },
-    selectedDayLabel: {
-        color: '#10b981',
-        fontWeight: 'bold',
-    },
-    legend: { 
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 24,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: '#374151',
-    },
-    legendItem: { 
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    legendBox: { 
-        width: 16,
-        height: 16,
-        borderRadius: 4,
-    },
-    legendText: { 
-        fontSize: 13,
-        color: '#d1d5db',
-        fontWeight: '600',
-    },
-    
-    // Pie chart
-    pieContainer: { alignItems: 'center', marginVertical: 20 },
-    pieCenter: { justifyContent: 'center', alignItems: 'center' },
-    pieCenterValue: { fontSize: 18, fontWeight: 'bold', color: '#f9fafb' },
-    pieCenterLabel: { fontSize: 11, color: '#9ca3af', marginTop: 4 },
-    categoryList: { marginTop: 16, gap: 12 },
-    categoryItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#374151' },
-    categoryLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    categoryDot: { width: 12, height: 12, borderRadius: 6 },
-    categoryName: { fontSize: 14, color: '#f9fafb', fontWeight: '500' },
+    dayLabel: { fontSize: 10, color: '#9ca3af', marginTop: 8, fontWeight: '600' },
+    selectedDayLabel: { color: '#10b981' },
+    legend: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 10 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendBox: { width: 12, height: 12, borderRadius: 3 },
+    legendText: { fontSize: 12, color: '#9ca3af' },
+    pieContainer: { alignItems: 'center', marginVertical: 10 },
+    pieCenter: { alignItems: 'center', justifyContent: 'center' },
+    pieCenterValue: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+    pieCenterLabel: { fontSize: 10, color: '#9ca3af' },
+    categoryList: { gap: 10 },
+    categoryItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#374151' },
+    categoryLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    categoryDot: { width: 10, height: 10, borderRadius: 5 },
+    categoryName: { fontSize: 14, color: '#d1d5db' },
     categoryRight: { alignItems: 'flex-end' },
-    categoryAmount: { fontSize: 14, fontWeight: 'bold', color: '#f9fafb' },
-    categoryPercent: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+    categoryAmount: { fontSize: 14, fontWeight: 'bold', color: '#fff' },
+    categoryPercent: { fontSize: 10, color: '#9ca3af' },
 });

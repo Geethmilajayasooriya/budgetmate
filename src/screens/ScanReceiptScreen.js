@@ -22,7 +22,7 @@ import { theme } from '../styles/theme';
 // ==========================================
 // 🔑 CONFIGURATION
 // ==========================================
-const GEMINI_API_KEY = 'AIzaSyDyx9SII-ew_gfMgfBpz-gYqslxXV9peKs'; 
+const GEMINI_API_KEY = 'AIzaSyBPCHqd6o1yM9kEJmMDQXnyeDqtblECrDs'; 
 const PRIMARY_GEMINI_MODEL = 'gemini-3-flash-preview'; 
 
 export default function ScanReceiptScreen() {

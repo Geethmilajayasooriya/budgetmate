@@ -20,13 +20,41 @@ import { useUser } from '../context/UserContext';
 import { addTransaction } from '../services/firebaseService';
 import { theme } from '../styles/theme';
 
-// Helper function to map bank transactions to categories
-const mapBankToCategory = (bankName) => {
-    const lowerBank = bankName.toLowerCase();
-    if (lowerBank.includes('ceb') || lowerBank.includes('electricity')) return 'utilities';
-    if (lowerBank.includes('water') || lowerBank.includes('nwsdb')) return 'utilities';
-    if (lowerBank.includes('food') || lowerBank.includes('restaurant')) return 'food';
-    if (lowerBank.includes('transport') || lowerBank.includes('uber') || lowerBank.includes('pickme')) return 'transport';
+// ✅ FIXED: Enhanced category mapping based on transaction reason AND bank name
+const mapBankToCategory = (transaction) => {
+    const reason = (transaction.reason || '').toLowerCase();
+    const bankName = (transaction.bankName || '').toLowerCase();
+    
+    // Priority 1: Check reason for specific keywords
+    if (reason.includes('electricity') || reason.includes('ceb')) return 'utilities';
+    if (reason.includes('water') || reason.includes('nwsdb')) return 'utilities';
+    if (reason.includes('bill') && !reason.includes('mobile')) return 'utilities';
+    
+    if (reason.includes('food') || reason.includes('restaurant') || reason.includes('cafe') || 
+        reason.includes('pizza') || reason.includes('kfc') || reason.includes('mcdonald')) return 'food';
+    
+    if (reason.includes('transport') || reason.includes('uber') || reason.includes('pickme') || 
+        reason.includes('taxi') || reason.includes('bus') || reason.includes('fuel') || reason.includes('petrol')) return 'transport';
+    
+    if (reason.includes('atm withdrawal') || reason.includes('cash withdrawal')) return 'other';
+    
+    if (reason.includes('shopping') || reason.includes('store') || reason.includes('supermarket') || 
+        reason.includes('mall')) return 'shopping';
+    
+    if (reason.includes('medical') || reason.includes('hospital') || reason.includes('pharmacy') || 
+        reason.includes('doctor')) return 'health';
+    
+    if (reason.includes('school') || reason.includes('university') || reason.includes('education') || 
+        reason.includes('course')) return 'education';
+    
+    if (reason.includes('cinema') || reason.includes('movie') || reason.includes('game') || 
+        reason.includes('entertainment')) return 'entertainment';
+    
+    // Priority 2: Check bank name as fallback
+    if (bankName.includes('ceb') || bankName.includes('electricity')) return 'utilities';
+    if (bankName.includes('water') || bankName.includes('nwsdb')) return 'utilities';
+    
+    // Default
     return 'other';
 };
 
@@ -278,23 +306,31 @@ export default function SMSTransactionsScreen({ navigation }) {
         return newTransactions;
     };
 
-    // Import single transaction to Firebase
+    // ✅ FIXED: Import single transaction with proper category mapping
     const handleImportTransaction = async (transaction) => {
         if (importing) return;
         
         setImporting(true);
         try {
+            // ✅ Pass the entire transaction object to get better category detection
+            const category = mapBankToCategory(transaction);
+            
+            console.log('=== IMPORTING TRANSACTION ===');
+            console.log('Transaction:', transaction);
+            console.log('Detected category:', category);
+            
             await addTransaction({
                 title: `${transaction.bankName} - ${transaction.reason}`,
                 amount: transaction.type === 'debit' ? -Math.abs(transaction.amount) : Math.abs(transaction.amount),
-                category: mapBankToCategory(transaction.bankName),
+                category: category, // ✅ Now uses enhanced detection
                 type: transaction.type === 'debit' ? 'expense' : 'income',
                 note: `Auto-imported from SMS\n${transaction.body}`,
                 date: new Date(transaction.timestamp).toISOString(),
             });
 
-            Alert.alert('Success', 'Transaction imported to your account!', [
-                { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
+            Alert.alert('Success', `Transaction imported to "${category}" category!`, [
+                { text: 'View Dashboard', onPress: () => navigation.navigate('Dashboard') },
+                { text: 'OK', style: 'cancel' }
             ]);
         } catch (error) {
             console.error('Error importing transaction:', error);
@@ -304,7 +340,7 @@ export default function SMSTransactionsScreen({ navigation }) {
         }
     };
 
-    // Import all transactions
+    // ✅ FIXED: Import all transactions with proper category mapping
     const handleImportAll = async () => {
         Alert.alert(
             'Import All Transactions',
@@ -317,13 +353,19 @@ export default function SMSTransactionsScreen({ navigation }) {
                         setImporting(true);
                         let successCount = 0;
                         let failCount = 0;
+                        const categoryCount = {};
 
                         for (const transaction of filteredTransactions) {
                             try {
+                                // ✅ Pass the entire transaction object for better detection
+                                const category = mapBankToCategory(transaction);
+                                
+                                categoryCount[category] = (categoryCount[category] || 0) + 1;
+                                
                                 await addTransaction({
                                     title: `${transaction.bankName} - ${transaction.reason}`,
                                     amount: transaction.type === 'debit' ? -Math.abs(transaction.amount) : Math.abs(transaction.amount),
-                                    category: mapBankToCategory(transaction.bankName),
+                                    category: category, // ✅ Now uses enhanced detection
                                     type: transaction.type === 'debit' ? 'expense' : 'income',
                                     note: `Auto-imported from SMS`,
                                     date: new Date(transaction.timestamp).toISOString(),
@@ -336,9 +378,15 @@ export default function SMSTransactionsScreen({ navigation }) {
                         }
 
                         setImporting(false);
+                        
+                        // Build category breakdown message
+                        const categoryBreakdown = Object.entries(categoryCount)
+                            .map(([cat, count]) => `  • ${cat}: ${count}`)
+                            .join('\n');
+                        
                         Alert.alert(
                             'Import Complete',
-                            `Successfully imported ${successCount} transactions.\nFailed: ${failCount}`,
+                            `Successfully imported ${successCount} transactions.\nFailed: ${failCount}\n\nCategory breakdown:\n${categoryBreakdown}`,
                             [
                                 { text: 'View Dashboard', onPress: () => navigation.navigate('Dashboard') }
                             ]
@@ -415,6 +463,14 @@ export default function SMSTransactionsScreen({ navigation }) {
                             </Text>
                         </View>
                     </View>
+                </View>
+                
+                {/* ✅ Shows detected category */}
+                <View style={styles.categoryPreview}>
+                    <Ionicons name="pricetag" size={14} color={theme.colors.primary} />
+                    <Text style={styles.categoryPreviewText}>
+                        Will be added to: {mapBankToCategory(item)}
+                    </Text>
                 </View>
                 
                 {/* Import Button */}
@@ -730,6 +786,21 @@ const styles = StyleSheet.create({
     typeText: { 
         fontSize: 9, 
         fontWeight: 'bold' 
+    },
+    categoryPreview: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
+        paddingHorizontal: theme.spacing.sm,
+        backgroundColor: theme.colors.background,
+        borderRadius: theme.borderRadius.md,
+    },
+    categoryPreviewText: {
+        fontSize: theme.fontSize.xs,
+        color: theme.colors.text_secondary,
+        fontStyle: 'italic',
     },
     importButton: {
         flexDirection: 'row',
